@@ -1,13 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Servir archivos estáticos
 app.use(express.static(__dirname));
@@ -99,6 +101,40 @@ app.delete('/api/users/:id', authMiddleware, async (req, res) => {
     res.json({ message: 'Usuario eliminado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- SUBIDA DE FOTOS DESDE EL EQUIPO ---
+const UPLOAD_MIME = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+
+app.post('/api/upload', authMiddleware, async (req, res) => {
+  const data = req.body && req.body.data;
+  const match = typeof data === 'string'
+    ? data.match(/^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,(.+)$/i)
+    : null;
+
+  if (!match) {
+    return res.status(400).json({ error: 'Imagen no válida. Formatos permitidos: JPG, PNG, WEBP o GIF.' });
+  }
+
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length) {
+    return res.status(400).json({ error: 'No se pudo leer la imagen.' });
+  }
+  if (buffer.length > 8 * 1024 * 1024) {
+    return res.status(413).json({ error: 'La imagen supera el máximo de 8 MB.' });
+  }
+
+  const ext = UPLOAD_MIME[match[1].toLowerCase()] || 'jpg';
+  const name = `vehiculo-${Date.now()}-${crypto.randomBytes(3).toString('hex')}.${ext}`;
+  const assetsDir = path.join(__dirname, 'assets');
+
+  try {
+    await fs.promises.mkdir(assetsDir, { recursive: true });
+    await fs.promises.writeFile(path.join(assetsDir, name), buffer);
+    res.json({ name });
+  } catch (err) {
+    res.status(500).json({ error: 'No se pudo guardar la imagen: ' + err.message });
   }
 });
 

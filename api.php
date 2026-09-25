@@ -158,6 +158,59 @@ if ($endpoint === 'vehicles' || strpos($path, 'vehicles') !== false) {
     }
 }
 
+// --- ENDPOINT: UPLOAD (fotos desde el equipo) ---
+if ($endpoint === 'upload') {
+    $user = getAuthUser($pdo);
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Acceso no autorizado']);
+        exit;
+    }
+
+    if ($rawInput === '' || $rawInput === false) {
+        http_response_code(413);
+        echo json_encode(['error' => 'Imagen demasiado grande para el servidor (máximo 8 MB).']);
+        exit;
+    }
+
+    $data = isset($input['data']) ? $input['data'] : '';
+    if (!preg_match('#^data:image/(jpeg|jpg|png|webp|gif);base64,(.+)$#i', $data, $m)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Imagen no válida. Formatos permitidos: JPG, PNG, WEBP o GIF.']);
+        exit;
+    }
+
+    $bin = base64_decode($m[2], true);
+    if ($bin === false || $bin === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'No se pudo leer la imagen.']);
+        exit;
+    }
+    if (strlen($bin) > 8 * 1024 * 1024) {
+        http_response_code(413);
+        echo json_encode(['error' => 'La imagen supera el máximo de 8 MB.']);
+        exit;
+    }
+
+    $extMap = ['jpeg' => 'jpg', 'jpg' => 'jpg', 'png' => 'png', 'webp' => 'webp', 'gif' => 'gif'];
+    $ext = strtolower($m[1]);
+    $ext = isset($extMap[$ext]) ? $extMap[$ext] : 'jpg';
+    $name = 'vehiculo-' . time() . '-' . bin2hex(random_bytes(3)) . '.' . $ext;
+
+    $dir = __DIR__ . DIRECTORY_SEPARATOR . 'assets';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0777, true);
+    }
+    if (@file_put_contents($dir . DIRECTORY_SEPARATOR . $name, $bin) === false) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudo guardar la imagen en /assets.']);
+        exit;
+    }
+
+    echo json_encode(['name' => $name]);
+    exit;
+}
+
 // --- ENDPOINT: AUTH LOGIN ---
 if ($endpoint === 'login' || strpos($path, 'login') !== false) {
     if ($method === 'POST') {
@@ -290,6 +343,7 @@ function formatVehicle($r) {
         } else {
             $imagesArray = array_filter(array_map('trim', explode(',', $rawImages)));
         }
+        $imagesArray = array_values(array_filter($imagesArray));
     }
     if (empty($imagesArray) && !empty($r['image'])) {
         $imagesArray = [$r['image']];

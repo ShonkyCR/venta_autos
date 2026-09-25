@@ -114,6 +114,11 @@ async function setupMySQLSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  // Columna de galería de fotos (múltiples imágenes)
+  try {
+    await mysqlPool.query('ALTER TABLE vehicles ADD COLUMN images TEXT NULL');
+  } catch (e) { }
+
   // Sembrar Usuario Admin si la tabla está vacía
   const [users] = await mysqlPool.query('SELECT COUNT(*) as count FROM users');
   if (users[0].count === 0) {
@@ -192,6 +197,10 @@ function setupSQLiteSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  try {
+    sqliteDb.exec('ALTER TABLE vehicles ADD COLUMN images TEXT');
+  } catch (e) { }
 
   const userCheck = sqliteDb.prepare('SELECT COUNT(*) as count FROM users').get();
   if (userCheck.count === 0) {
@@ -304,6 +313,27 @@ async function deleteUser(id) {
 
 // --- MÉTODOS DE VEHÍCULOS ---
 
+function parseImages(raw, fallbackImage) {
+  let list = [];
+  if (raw) {
+    let decoded = null;
+    try { decoded = JSON.parse(raw); } catch (e) { }
+    if (Array.isArray(decoded)) {
+      list = decoded.filter(Boolean);
+    } else if (typeof raw === 'string') {
+      list = raw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+  if (!list.length && fallbackImage) list = [fallbackImage];
+  return list;
+}
+
+function imagesToJson(v, fallbackImage) {
+  const list = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
+  const finalList = list.length ? list : [fallbackImage];
+  return JSON.stringify(finalList);
+}
+
 function formatVehicleRow(row) {
   return {
     id: row.id,
@@ -320,6 +350,7 @@ function formatVehicleRow(row) {
     featured: Boolean(row.featured),
     description: row.description,
     image: row.image,
+    images: parseImages(row.images, row.image),
     createdAt: row.created_at
   };
 }
@@ -358,18 +389,19 @@ async function createVehicle(v) {
   const featured = v.featured ? 1 : 0;
   const description = v.description || '';
   const image = v.image || 'sedan.jpeg';
+  const images = imagesToJson(v, image);
 
   if (useMySQL) {
     const [res] = await mysqlPool.query(`
-      INSERT INTO vehicles (brand, model, year, price, currency, mileage, vehicle_type, transmission, fuel, status, featured, description, image)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image]);
+      INSERT INTO vehicles (brand, model, year, price, currency, mileage, vehicle_type, transmission, fuel, status, featured, description, image, images)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image, images]);
     return getVehicleById(res.insertId);
   } else {
     const res = sqliteDb.prepare(`
-      INSERT INTO vehicles (brand, model, year, price, currency, mileage, vehicle_type, transmission, fuel, status, featured, description, image)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image);
+      INSERT INTO vehicles (brand, model, year, price, currency, mileage, vehicle_type, transmission, fuel, status, featured, description, image, images)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image, images);
     return getVehicleById(res.lastInsertRowid);
   }
 }
@@ -388,24 +420,25 @@ async function updateVehicle(id, v) {
   const featured = v.featured ? 1 : 0;
   const description = v.description || '';
   const image = v.image || 'sedan.jpeg';
+  const images = imagesToJson(v, image);
 
   if (useMySQL) {
     await mysqlPool.query(`
       UPDATE vehicles
       SET brand = ?, model = ?, year = ?, price = ?, currency = ?, mileage = ?,
           vehicle_type = ?, transmission = ?, fuel = ?, status = ?, featured = ?,
-          description = ?, image = ?
+          description = ?, image = ?, images = ?
       WHERE id = ?
-    `, [brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image, id]);
+    `, [brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image, images, id]);
     return getVehicleById(id);
   } else {
     sqliteDb.prepare(`
       UPDATE vehicles
       SET brand = ?, model = ?, year = ?, price = ?, currency = ?, mileage = ?,
           vehicle_type = ?, transmission = ?, fuel = ?, status = ?, featured = ?,
-          description = ?, image = ?
+          description = ?, image = ?, images = ?
       WHERE id = ?
-    `).run(brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image, id);
+    `).run(brand, model, year, price, currency, mileage, vehicleType, transmission, fuel, status, featured, description, image, images, id);
     return getVehicleById(id);
   }
 }

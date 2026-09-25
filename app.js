@@ -55,6 +55,24 @@ function imagePath(name) {
   return `${ASSETS}${name}`;
 }
 
+// Estados visibles para el público (portada, catálogo y detalle)
+function isPublicVehicle(v) {
+  return Boolean(v) && (v.status === 'Publicado' || v.status === 'Reservado');
+}
+
+function publicVehicles() {
+  return state.vehicles.filter(isPublicVehicle);
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 // Interacción flexible con API Node.js o PHP/XAMPP
 async function apiFetch(endpoint, method = 'GET', body = null) {
   triggerLoading();
@@ -186,7 +204,7 @@ function footer() {
   <footer class="footer" style="border-top: 1px solid var(--line); padding: 40px 0; margin-top: 60px;">
     <div class="container" style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center;">
       <div>
-        <b class="font-display" style="font-size:16px;color:#dbe4df">AutoFolio<span style="color:var(--gold)">.cr</span></b>
+        <b class="font-display" style="font-size:16px;color:var(--fg)">AutoFolio<span style="color:var(--gold)">.cr</span></b>
         <div style="margin-top:4px; font-size:13px; color:var(--muted)">Movilidad con criterio · Escazú, San José, Costa Rica</div>
       </div>
       <span style="font-size:12px; color:var(--muted)">© 2026 AutoFolio CR · Precios en Colones (CRC) · MySQL venta_autos</span>
@@ -205,7 +223,7 @@ function vehicleCard(v) {
       </div>
       <div class="vehicle-bottom">
         <small>${v.year} · ${esc(v.vehicleType)}</small>
-        <h3>${esc(v.brand)} <span style="color:#d0ddd7">${esc(v.model)}</span> <span style="float:right;color:var(--gold)"><i class="fa-solid fa-arrow-up-right-from-square"></i></span></h3>
+        <h3>${esc(v.brand)} <span style="color:#56646b">${esc(v.model)}</span> <span style="float:right;color:var(--gold)"><i class="fa-solid fa-arrow-up-right-from-square"></i></span></h3>
       </div>
     </div>
     <div class="vehicle-meta">
@@ -218,8 +236,9 @@ function vehicleCard(v) {
 // --- VISTAS ---
 
 function home() {
-  const featured = state.vehicles.filter(v => v.featured);
-  const displayVehicles = featured.length ? featured.slice(0, 3) : state.vehicles.slice(0, 3);
+  const available = publicVehicles();
+  const featured = available.filter(v => v.featured);
+  const displayVehicles = featured.length ? featured.slice(0, 3) : available.slice(0, 3);
 
   return `
   <div class="site-shell site-grid animate-fade">
@@ -233,11 +252,11 @@ function home() {
             <h1>El próximo capítulo de tu <span>movilidad.</span></h1>
             <p class="hero-copy">Una selección exclusiva de autos inspeccionados, historial verificado y precios transparentes en colones (CRC).</p>
             <form class="searchbar" id="hero-search">
-              <span style="color:#7e948d"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <span style="color:#5f6f76"><i class="fa-solid fa-magnifying-glass"></i></span>
               <input name="q" placeholder="Busca por marca, modelo o tipo...">
               <button class="button" type="submit">Buscar</button>
             </form>
-            <div style="display:flex;gap:20px;margin-top:24px;color:#9eaea9;font-size:12px;flex-wrap:wrap;">
+            <div style="display:flex;gap:20px;margin-top:24px;color:#5c6b73;font-size:12px;flex-wrap:wrap;">
               <span><i class="fa-solid fa-shield-halved" style="color:var(--gold)"></i> Compra con respaldo</span>
               <span><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Inspección certificada</span>
               <span><i class="fa-solid fa-file-invoice-dollar" style="color:var(--gold)"></i> Financiamiento disponible</span>
@@ -291,7 +310,7 @@ function home() {
         <div class="section-head">
           <div>
             <div class="eyebrow">Selección curada</div>
-            <h2>Autos Disponibles Destacados (${state.vehicles.length} totales)</h2>
+            <h2>Autos Disponibles Destacados (${available.length} totales)</h2>
           </div>
           <a class="muted-link" href="#/catalog" style="font-size:13px;color:var(--gold)">Ver todos los Autos Disponibles <i class="fa-solid fa-arrow-right"></i></a>
         </div>
@@ -395,7 +414,7 @@ function home() {
             <div style="width:64px; height:64px; border-radius:50%; background:#25D366; color:white; display:grid; place-items:center; font-size:32px; margin-bottom:16px; box-shadow: 0 10px 20px rgba(37,211,102,0.3);">
               <i class="fa-brands fa-whatsapp"></i>
             </div>
-            <h3 style="font:700 24px 'Space Grotesk'; margin:0 0 8px; color:white">Atención Inmediata por WhatsApp</h3>
+            <h3 style="font:700 24px 'Space Grotesk'; margin:0 0 8px; color:var(--fg)">Atención Inmediata por WhatsApp</h3>
             <p style="color:var(--muted); font-size:14px; margin-bottom:24px; max-width:380px;">
               Chatea directamente con la gerencia o ventas para consultar precios, citas de prueba de manejo o información de los vehículos.
             </p>
@@ -424,7 +443,7 @@ function catalog() {
           <h1 class="page-title">Autos Disponibles</h1>
           <p style="color:var(--muted); max-width:600px">Explora nuestro catálogo completo con precios expresados en colones costarricenses (₡ CRC).</p>
         </div>
-        <span id="count" style="color:var(--muted); font-size:14px">${state.vehicles.length} unidades disponibles</span>
+        <span id="count" style="color:var(--muted); font-size:14px">${publicVehicles().length} unidades disponibles</span>
       </div>
 
       <div class="toolbar">
@@ -462,7 +481,7 @@ function renderCatalog() {
 
   const render = () => {
     const q = search.value.toLowerCase().trim();
-    const list = state.vehicles.filter(v =>
+    const list = publicVehicles().filter(v =>
       (!q || `${v.brand} ${v.model} ${v.vehicleType}`.toLowerCase().includes(q)) &&
       (type.value === 'Todos' || v.vehicleType === type.value) &&
       (fuel.value === 'Todos' || v.fuel === fuel.value)
@@ -474,7 +493,7 @@ function renderCatalog() {
     grid.innerHTML = list.length
       ? list.map(vehicleCard).join('')
       : `<div style="grid-column:1/-1; padding:40px; text-align:center; background:var(--card); border-radius:16px; border:1px solid var(--line);">
-          <h3 style="font:600 22px 'Space Grotesk';color:white">No se encontraron vehículos</h3>
+          <h3 style="font:600 22px 'Space Grotesk';color:var(--fg)">No se encontraron vehículos</h3>
           <p style="color:var(--muted)">Intenta modificar la búsqueda o limpiar los filtros.</p>
          </div>`;
   };
@@ -484,8 +503,8 @@ function renderCatalog() {
 }
 
 function detail(id) {
-  const v = state.vehicles.find(x => x.id === Number(id)) || state.vehicles[0];
-  if (!v) {
+  const v = state.vehicles.find(x => x.id === Number(id));
+  if (!v || !isPublicVehicle(v)) {
     return `<div class="site-shell">${header()}<main class="container page-main"><h2>Vehículo no encontrado.</h2><a href="#/catalog" class="button">Volver a Autos Disponibles</a></main></div>`;
   }
 
@@ -522,7 +541,7 @@ function detail(id) {
 
         <div>
           <div class="eyebrow">Ficha técnica · Unidad #${v.id}</div>
-          <h1 style="font:700 36px 'Space Grotesk'; margin:8px 0 16px">${esc(v.brand)} <span style="color:#c7d4cf">${esc(v.model)}</span></h1>
+          <h1 style="font:700 36px 'Space Grotesk'; margin:8px 0 16px">${esc(v.brand)} <span style="color:#3c474e">${esc(v.model)}</span></h1>
           <div style="font:700 30px 'Space Grotesk'; color:var(--gold); margin-bottom:20px">${money(v.price, v.currency || 'CRC')}</div>
 
           <p style="color:var(--muted); line-height:1.6; margin-bottom:24px">${esc(v.description || 'Sin descripción disponible.')}</p>
@@ -599,7 +618,7 @@ function loginView(errorMsg = '') {
           <button class="button" type="submit" style="margin-top:10px"><i class="fa-solid fa-right-to-bracket"></i> Ingresar al Panel</button>
         </form>
 
-        <div style="margin-top:20px; padding:12px; background:rgba(233,189,106,.08); border-radius:10px; font-size:12px; color:var(--muted); text-align:center">
+        <div style="margin-top:20px; padding:12px; background:rgba(196,80,10,.07); border-radius:10px; font-size:12px; color:var(--muted); text-align:center">
           <i class="fa-solid fa-key" style="color:var(--gold)"></i> <b>Credenciales de acceso:</b><br>
           Usuario: <code>admin</code> &nbsp;|&nbsp; Clave: <code>admin123</code>
         </div>
@@ -634,6 +653,7 @@ function adminView() {
     total: state.vehicles.length,
     published: state.vehicles.filter(v => v.status === 'Publicado').length,
     reserved: state.vehicles.filter(v => v.status === 'Reservado').length,
+    sold: state.vehicles.filter(v => v.status === 'Vendido').length,
     value: state.vehicles.reduce((a, v) => a + Number(v.price || 0), 0)
   };
 
@@ -662,6 +682,7 @@ function adminView() {
           <div class="kpi"><small>Inventario Total</small><strong>${totals.total}</strong><span>unidades guardadas</span></div>
           <div class="kpi"><small>Publicados</small><strong>${totals.published}</strong><span>visibles en catálogo</span></div>
           <div class="kpi"><small>Reservados</small><strong>${totals.reserved}</strong><span>en proceso de cierre</span></div>
+          <div class="kpi"><small>Vendidos</small><strong>${totals.sold}</strong><span>ocultos del catálogo</span></div>
           <div class="kpi"><small>Valor Total Inventario</small><strong>${money(totals.value, 'CRC')}</strong><span>monto total CRC</span></div>
         </div>
 
@@ -756,6 +777,43 @@ function renderAdmin() {
   }
 }
 
+async function changeVehicleStatus(id, status) {
+  const v = state.vehicles.find(x => x.id === id);
+  if (!v) return;
+
+  const isSell = status === 'Vendido';
+  const message = isSell
+    ? `¿Marcar "${v.brand} ${v.model}" (#${id}) como Vendido? Dejará de aparecer en el catálogo público.`
+    : `¿Reactivar "${v.brand} ${v.model}" (#${id}) como Publicado? Volverá a aparecer en el catálogo público.`;
+
+  if (!confirm(message)) return;
+
+  const payload = {
+    brand: v.brand,
+    model: v.model,
+    year: v.year,
+    price: v.price,
+    currency: v.currency,
+    mileage: v.mileage,
+    vehicleType: v.vehicleType,
+    transmission: v.transmission,
+    fuel: v.fuel,
+    status,
+    featured: v.featured,
+    description: v.description,
+    image: v.image,
+    images: v.images
+  };
+
+  try {
+    const updated = await apiFetch(`/api/vehicles/${id}`, 'PUT', payload);
+    v.status = updated.status;
+    route();
+  } catch (err) {
+    alert('No se pudo actualizar el estado: ' + err.message);
+  }
+}
+
 function renderVehicleTable() {
   const body = document.querySelector('#admin-body');
   const search = document.querySelector('#admin-search');
@@ -776,6 +834,9 @@ function renderVehicleTable() {
         <td><span class="status ${statusClass(v.status)}">${esc(v.status)}</span></td>
         <td>${Number(v.mileage || 0).toLocaleString()} km</td>
         <td style="text-align:right">
+          ${v.status === 'Vendido'
+      ? `<button class="icon-btn reactivate-btn" data-id="${v.id}" title="Reactivar (volver a Publicado)" style="color:var(--green)"><i class="fa-solid fa-rotate-left"></i></button>`
+      : `<button class="icon-btn sell-btn" data-id="${v.id}" title="Marcar como Vendido" style="color:var(--gold)"><i class="fa-solid fa-hand-holding-dollar"></i></button>`}
           <button class="icon-btn edit-btn" data-id="${v.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
           <button class="icon-btn delete-btn" data-id="${v.id}" title="Eliminar" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
         </td>
@@ -787,6 +848,14 @@ function renderVehicleTable() {
         const item = state.vehicles.find(v => v.id === Number(b.dataset.id));
         if (item) openVehicleModal(item);
       };
+    });
+
+    body.querySelectorAll('.sell-btn').forEach(b => {
+      b.onclick = () => changeVehicleStatus(Number(b.dataset.id), 'Vendido');
+    });
+
+    body.querySelectorAll('.reactivate-btn').forEach(b => {
+      b.onclick = () => changeVehicleStatus(Number(b.dataset.id), 'Publicado');
     });
 
     body.querySelectorAll('.delete-btn').forEach(b => {
@@ -857,11 +926,10 @@ function openVehicleModal(vehicle = null) {
   const v = vehicle || {
     brand: '', model: '', year: 2025, price: '', mileage: 0, currency: 'CRC',
     vehicleType: 'SUV', transmission: 'Automática', fuel: 'Gasolina',
-    status: 'Publicado', description: '', featured: false, image: 'sedan.jpeg',
-    images: ['sedan.jpeg']
+    status: 'Publicado', description: '', featured: false, image: '',
+    images: []
   };
 
-  const currentGallery = Array.isArray(v.images) ? v.images.join(', ') : (v.image || 'sedan.jpeg');
   const options = (arr, val) => arr.map(x => `<option ${x === val ? 'selected' : ''} value="${x}">${x}</option>`).join('');
 
   const modal = document.createElement('div');
@@ -909,20 +977,41 @@ function openVehicleModal(vehicle = null) {
         </label>
 
         <!-- SECCIÓN DE FOTOGRAFÍAS -->
-        <label class="full" style="background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid var(--line);">
-          <strong style="color:var(--gold); margin-bottom:8px; display:block;"><i class="fa-solid fa-camera"></i> Gestión de Fotografías del Vehículo</strong>
-          
-          <div style="margin-bottom:12px">
-            <span style="font-size:11px; color:var(--muted)">1. Foto Principal (Portada de tarjeta)</span>
-            <input class="form-input" name="image" required value="${esc(v.image || 'sedan.jpeg')}" placeholder="ej: luxury-black.jpeg o URL de la foto principal" style="width:100%; margin-top:4px">
+        <div class="full" style="grid-column:span 2; background:rgba(24,45,60,0.04); padding:16px; border-radius:12px; border:1px solid var(--line);">
+          <strong style="color:var(--gold); margin-bottom:4px; display:block;"><i class="fa-solid fa-camera"></i> Fotografías del Vehículo</strong>
+          <small style="color:#71847d; font-size:10px;">Sube imágenes desde tu equipo. Formatos: JPG, PNG, WEBP o GIF (máximo 8 MB cada una).</small>
+
+          <div style="margin-top:12px">
+            <span style="font-size:11px; color:var(--muted)">1. Foto principal <span style="opacity:.75">— la que se muestra en el catálogo</span></span>
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:6px">
+              <img id="cover-thumb" alt="Foto principal" style="display:none; width:150px; height:100px; object-fit:cover; border-radius:8px; border:1px solid var(--line)">
+              <span id="cover-empty" style="width:150px; height:100px; border:1px dashed var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; text-align:center; padding:6px; box-sizing:border-box">Sin foto principal aún</span>
+              <div style="display:flex; flex-direction:column; gap:8px">
+                <button type="button" class="button outline" id="cover-upload-btn" style="padding:8px 14px; font-size:11px">
+                  <i class="fa-solid fa-upload"></i> <span id="cover-upload-label">Subir foto principal</span>
+                </button>
+                <button type="button" class="button outline" id="cover-remove-btn" style="padding:8px 14px; font-size:11px; display:none">
+                  <i class="fa-solid fa-trash"></i> Quitar foto principal
+                </button>
+              </div>
+            </div>
+            <span id="cover-status" style="font-size:11px; color:var(--muted); display:block; margin-top:6px"></span>
           </div>
 
-          <div>
-            <span style="font-size:11px; color:var(--muted)">2. Fotos Adicionales para la Galería (Frente, Interior, Costado) - separadas por coma</span>
-            <input class="form-input" name="raw_images" value="${esc(currentGallery)}" placeholder="ej: luxury-black.jpeg, sedan.jpeg, pickup.jpeg o URLs" style="width:100%; margin-top:4px">
-            <small style="color:#71847d; font-size:10px; margin-top:4px; display:block;">Sugerencias predeterminadas: <code>sedan.jpeg</code>, <code>pickup.jpeg</code>, <code>luxury-black.jpeg</code> o pega URLs de imágenes web.</small>
+          <div style="margin-top:16px; border-top:1px dashed var(--line); padding-top:12px">
+            <span style="font-size:11px; color:var(--muted)">2. Fotos secundarias <span style="opacity:.75">— interior, motor, detalles... opcionales</span></span>
+            <div style="margin-top:6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+              <button type="button" class="button outline" id="gallery-upload-btn" style="padding:8px 14px; font-size:11px">
+                <i class="fa-solid fa-plus"></i> Agregar fotos secundarias
+              </button>
+              <span id="gallery-status" style="font-size:11px; color:var(--muted)"></span>
+            </div>
+            <div id="gallery-grid" style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px"></div>
           </div>
-        </label>
+
+          <input type="file" id="cover-file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
+          <input type="file" id="gallery-file" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none">
+        </div>
 
         <label style="display:flex; flex-direction:row; align-items:center; gap:8px; margin-top:10px" class="full">
           <input type="checkbox" name="featured" ${v.featured ? 'checked' : ''}>
@@ -946,6 +1035,149 @@ function openVehicleModal(vehicle = null) {
   modal.querySelector('#close-modal').onclick = closeModal;
   modal.querySelector('#cancel-modal').onclick = closeModal;
 
+  // --- FOTOS: PORTADA + GALERÍA (solo subida de imágenes desde el equipo) ---
+  const coverFile = modal.querySelector('#cover-file');
+  const coverBtn = modal.querySelector('#cover-upload-btn');
+  const coverLabel = modal.querySelector('#cover-upload-label');
+  const coverRemoveBtn = modal.querySelector('#cover-remove-btn');
+  const coverThumb = modal.querySelector('#cover-thumb');
+  const coverEmpty = modal.querySelector('#cover-empty');
+  const coverStatus = modal.querySelector('#cover-status');
+
+  const galleryFile = modal.querySelector('#gallery-file');
+  const galleryBtn = modal.querySelector('#gallery-upload-btn');
+  const galleryStatus = modal.querySelector('#gallery-status');
+  const galleryGrid = modal.querySelector('#gallery-grid');
+
+  const defaultCovers = ['sedan.jpeg', 'pickup.jpeg', 'luxury-black.jpeg'];
+
+  let cover = '';
+  let secondary = [];
+  if (isEdit) {
+    cover = v.image || '';
+    const imgs = Array.isArray(v.images) && v.images.length
+      ? v.images.slice()
+      : (v.image ? [v.image] : []);
+    secondary = imgs.filter(x => x && x !== cover);
+  }
+
+  function renderCover() {
+    const has = Boolean(cover);
+    coverThumb.style.display = has ? 'block' : 'none';
+    coverEmpty.style.display = has ? 'none' : 'flex';
+    coverRemoveBtn.style.display = has ? 'inline-flex' : 'none';
+    coverLabel.textContent = has ? 'Cambiar foto principal' : 'Subir foto principal';
+    if (has) coverThumb.src = imagePath(cover);
+  }
+
+  function renderGallery() {
+    galleryGrid.innerHTML = secondary.map((name, i) => `
+      <div style="width:112px; text-align:center">
+        <img src="${imagePath(name)}" alt="Foto secundaria ${i + 1}" style="width:112px; height:76px; object-fit:cover; border-radius:8px; border:1px solid var(--line); display:block">
+        <div style="display:flex; gap:6px; justify-content:center; margin-top:5px">
+          <button type="button" class="button outline gal-cover" data-i="${i}" title="Usar como foto principal" style="padding:3px 8px; font-size:10px"><i class="fa-solid fa-star"></i></button>
+          <button type="button" class="button outline gal-remove" data-i="${i}" title="Quitar foto" style="padding:3px 8px; font-size:10px"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>`).join('');
+  }
+
+  galleryGrid.onclick = e => {
+    const btn = e.target.closest('button[data-i]');
+    if (!btn) return;
+    const i = Number(btn.dataset.i);
+    if (Number.isNaN(i) || !secondary[i]) return;
+
+    if (btn.classList.contains('gal-remove')) {
+      secondary.splice(i, 1);
+      galleryStatus.textContent = '';
+      renderGallery();
+      return;
+    }
+
+    if (btn.classList.contains('gal-cover')) {
+      const picked = secondary.splice(i, 1)[0];
+      if (cover && !secondary.includes(cover)) secondary.unshift(cover);
+      cover = picked;
+      coverStatus.textContent = 'Foto principal actualizada.';
+      renderCover();
+      renderGallery();
+    }
+  };
+
+  async function uploadImageFile(file) {
+    if (!file.type || !file.type.startsWith('image/')) {
+      throw new Error(`"${file.name}" no es una imagen válida (JPG, PNG, WEBP o GIF).`);
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      throw new Error(`"${file.name}" supera el máximo de 8 MB.`);
+    }
+    const dataUrl = await readFileAsDataURL(file);
+    const res = await apiFetch('/api/upload', 'POST', { filename: file.name, data: dataUrl });
+    return res.name;
+  }
+
+  coverBtn.onclick = () => coverFile.click();
+  coverFile.onchange = async () => {
+    const file = coverFile.files && coverFile.files[0];
+    if (!file) return;
+
+    coverStatus.textContent = 'Subiendo foto principal...';
+    coverBtn.disabled = true;
+    try {
+      const name = await uploadImageFile(file);
+      if (cover && !defaultCovers.includes(cover) && !secondary.includes(cover)) {
+        secondary.unshift(cover);
+      }
+      cover = name;
+      coverStatus.textContent = 'Foto principal lista.';
+      renderCover();
+      renderGallery();
+    } catch (err) {
+      coverStatus.textContent = 'Error al subir: ' + err.message;
+    } finally {
+      coverBtn.disabled = false;
+      coverFile.value = '';
+    }
+  };
+
+  coverRemoveBtn.onclick = () => {
+    cover = '';
+    coverStatus.textContent = 'Foto principal quitada.';
+    renderCover();
+  };
+
+  galleryBtn.onclick = () => galleryFile.click();
+  galleryFile.onchange = async () => {
+    const files = Array.from(galleryFile.files || []);
+    if (!files.length) return;
+
+    galleryBtn.disabled = true;
+    let done = 0;
+    const errors = [];
+    try {
+      for (const file of files) {
+        galleryStatus.textContent = `Subiendo ${done + 1} de ${files.length}...`;
+        try {
+          const name = await uploadImageFile(file);
+          if (name !== cover && !secondary.includes(name)) secondary.push(name);
+          done++;
+          renderGallery();
+        } catch (err) {
+          errors.push(err.message);
+        }
+      }
+      galleryStatus.textContent = errors.length
+        ? `Subidas ${done} de ${files.length}. ${errors.join(' ')}`
+        : `${done} foto(s) secundaria(s) agregada(s).`;
+    } finally {
+      galleryBtn.disabled = false;
+      galleryFile.value = '';
+    }
+  };
+
+  renderCover();
+  renderGallery();
+
   const form = modal.querySelector('#vehicle-form');
   form.onsubmit = async e => {
     e.preventDefault();
@@ -953,11 +1185,12 @@ function openVehicleModal(vehicle = null) {
     const data = Object.fromEntries(formData);
     data.featured = formData.get('featured') === 'on';
 
-    const rawImgs = data.raw_images || '';
-    const imagesArr = rawImgs.split(',').map(s => s.trim()).filter(Boolean);
-    if (!imagesArr.includes(data.image)) {
-      imagesArr.unshift(data.image);
-    }
+    const imagesArr = [];
+    if (cover) imagesArr.push(cover);
+    secondary.forEach(s => { if (s && !imagesArr.includes(s)) imagesArr.push(s); });
+
+    data.image = cover || imagesArr[0] || 'sedan.jpeg';
+    if (!imagesArr.length) imagesArr.push(data.image);
     data.images = imagesArr;
 
     try {
